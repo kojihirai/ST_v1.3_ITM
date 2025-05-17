@@ -1,0 +1,4 @@
+pigpio>=1.78
+paho-mqtt>=1.6.1
+pymodbus>=3.5.4
+python-dotenv>=1.0.0 

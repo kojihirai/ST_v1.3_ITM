@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firmware OTA Update</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8 text-center text-gray-800">Firmware OTA Update</h1>
+        
+        <!-- Status Card -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">PM2 Status</h2>
+            <div id="status" class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-gray-600">Status:</p>
+                    <p id="pm2-status" class="font-medium"></p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Uptime:</p>
+                    <p id="pm2-uptime" class="font-medium"></p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Memory Usage:</p>
+                    <p id="pm2-memory" class="font-medium"></p>
+                </div>
+                <div>
+                    <p class="text-gray-600">CPU Usage:</p>
+                    <p id="pm2-cpu" class="font-medium"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Card -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Upload New Firmware</h2>
+            <form id="upload-form" class="space-y-4">
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <input type="file" id="firmware-file" accept=".py" class="hidden">
+                    <label for="firmware-file" class="cursor-pointer">
+                        <div class="text-gray-600">
+                            <p class="mb-2">Click to select a Python file</p>
+                            <p class="text-sm">or drag and drop here</p>
+                        </div>
+                    </label>
+                </div>
+                <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+                    Upload and Update
+                </button>
+            </form>
+            <div id="upload-status" class="mt-4 text-center"></div>
+        </div>
+    </div>
+
+    <script>
+        // Update status every 5 seconds
+        function updateStatus() {
+            axios.get('/status')
+                .then(response => {
+                    const data = response.data;
+                    document.getElementById('pm2-status').textContent = data.status;
+                    document.getElementById('pm2-uptime').textContent = new Date(data.uptime).toLocaleString();
+                    document.getElementById('pm2-memory').textContent = `${(data.memory / 1024 / 1024).toFixed(2)} MB`;
+                    document.getElementById('pm2-cpu').textContent = `${data.cpu}%`;
+                })
+                .catch(error => {
+                    console.error('Error fetching status:', error);
+                });
+        }
+
+        // Initial status update
+        updateStatus();
+        setInterval(updateStatus, 5000);
+
+        // Handle file upload
+        document.getElementById('upload-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('firmware-file');
+            const statusDiv = document.getElementById('upload-status');
+            
+            if (!fileInput.files.length) {
+                statusDiv.textContent = 'Please select a file';
+                statusDiv.className = 'mt-4 text-center text-red-500';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            statusDiv.textContent = 'Uploading...';
+            statusDiv.className = 'mt-4 text-center text-blue-500';
+
+            axios.post('/upload', formData)
+                .then(response => {
+                    statusDiv.textContent = 'Firmware updated successfully!';
+                    statusDiv.className = 'mt-4 text-center text-green-500';
+                    fileInput.value = '';
+                })
+                .catch(error => {
+                    statusDiv.textContent = error.response?.data?.error || 'Upload failed';
+                    statusDiv.className = 'mt-4 text-center text-red-500';
+                });
+        });
+
+        // Drag and drop functionality
+        const dropZone = document.querySelector('.border-dashed');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('border-blue-500');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('border-blue-500');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            document.getElementById('firmware-file').files = files;
+        }
+    </script>
+</body>
+</html> 
